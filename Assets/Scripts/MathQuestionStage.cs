@@ -50,6 +50,8 @@ public class MathQuestionStage : MonoBehaviour
         if (solved)
             return;
         solved = true;
+        foreach (MathAnswerPlatform answer in answerPlatforms)
+            answer.DropIfWrong();
         if (correctBridge != null)
             correctBridge.SetActive(true);
         if (board != null)

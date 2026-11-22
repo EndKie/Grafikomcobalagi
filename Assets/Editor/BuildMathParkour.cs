@@ -9,8 +9,11 @@ public static class BuildMathParkour
 {
     private const string ScenePath = "Assets/Scenes/GetStarted_Scene.unity";
     private const string BoxPath = "Assets/Starter Assets/Sample/Environment/Prefabs/Box_350x250x300_Prefab.prefab";
+    private const string PlatformPath = "Assets/SourceFiles/Models/Platform.FBX";
+    private const string EntryIslandTerrainPath = "Assets/Nature/Generated/MathEntryIslandTerrain.asset";
+    private const string FinishIslandTerrainPath = "Assets/Nature/Generated/MathFinishIslandTerrain.asset";
     private static readonly Vector3 GateOrigin = new(44f, 14f, 8f);
-    private const int BuildVersion = 5;
+    private const int BuildVersion = 18;
     private const string RootName = "Math_Parkour_10_Questions";
 
     static BuildMathParkour()
@@ -51,7 +54,6 @@ public static class BuildMathParkour
         DestroyExisting("Math_Parkour_1");
         DestroyExisting(RootName);
 
-        Material pink = LoadMaterial("Material_Simple_Pink");
         Material purple = LoadMaterial("Material_Simple_Purple");
         Material blue = LoadMaterial("Material_Simple_BlueDark");
         Material blueLight = LoadMaterial("Material_Simple_BlueLight");
@@ -59,8 +61,9 @@ public static class BuildMathParkour
         Material orange = LoadMaterial("Material_Simple_Orange");
         Material yellow = LoadMaterial("Material_Simple_Yellow");
         Material green = LoadMaterial("Material_Simple_Green");
-        if (pink == null || purple == null || blue == null || blueLight == null || aqua == null ||
-            orange == null || yellow == null || green == null || LoadPrefab(BoxPath) == null)
+        if (purple == null || blue == null || blueLight == null || aqua == null ||
+            orange == null || yellow == null || green == null || LoadPrefab(BoxPath) == null ||
+            LoadPrefab(PlatformPath) == null)
         {
             return;
         }
@@ -69,9 +72,9 @@ public static class BuildMathParkour
         BuildNormalParkour(normalRoot, aqua, orange, yellow, green, blueLight);
 
         Transform mathRoot = new GameObject(RootName).transform;
-        BuildGate(mathRoot, purple, pink, blue);
-        BuildMathCourse(mathRoot, pink, purple, green, blueLight);
-        AddKillZone(mathRoot);
+        BuildGate(mathRoot, purple, blue);
+        BuildMathCourse(mathRoot, green);
+        ConfigureWater();
         new GameObject($"Build_v{BuildVersion}").transform.SetParent(mathRoot);
 
         Debug.Assert(mathRoot.GetComponentsInChildren<MathQuestionStage>(true).Length == 10);
@@ -80,8 +83,7 @@ public static class BuildMathParkour
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
-        Selection.activeGameObject = mathRoot.gameObject;
-        SceneView.lastActiveSceneView?.FrameSelected();
+        Selection.activeGameObject = null;
         Debug.Log("Parkour +X and 10-question random math parkour +Z built with project platform assets.");
     }
 
@@ -107,7 +109,7 @@ public static class BuildMathParkour
             new Vector2(12f, 3f), Quaternion.Euler(0f, 90f, 0f));
     }
 
-    private static void BuildGate(Transform root, Material purple, Material pink, Material blue)
+    private static void BuildGate(Transform root, Material purple, Material blue)
     {
         CreateAssetBox("Gate_Turn_Floor", root, GateOrigin + new Vector3(0f, -0.35f, 3f),
             new Vector3(10f, 0.7f, 10f), blue);
@@ -117,40 +119,36 @@ public static class BuildMathParkour
             new Vector3(1f, 6.4f, 1f), purple);
         CreateAssetBox("Gate_Top", root, GateOrigin + new Vector3(0f, 5.7f, 0f),
             new Vector3(1f, 1f, 11.4f), purple);
-        CreateAssetBox("Gate_Title_Board", root, GateOrigin + new Vector3(-0.1f, 3.8f, 0f),
-            new Vector3(0.4f, 6f, 12f), pink, false);
-        AddText("<b>MATH PARKOUR</b>\n10 SOAL ACAK\nBELOK KE KANAN →", root,
-            GateOrigin + new Vector3(-0.35f, 3.8f, 0f), 2.6f, Color.white,
-            new Vector2(11f, 6f), Quaternion.Euler(0f, 90f, 0f));
         AddCheckpoint(root, "Math_Gate_Checkpoint", GateOrigin + new Vector3(0f, 1.5f, 3f),
             new Vector3(8f, 3f, 7f));
     }
 
-    private static void BuildMathCourse(Transform root, Material pink, Material purple, Material green,
-        Material bridgeMaterial)
+    private static void BuildMathCourse(Transform root, Material green)
     {
         float firstRowZ = GateOrigin.z + 12f;
-        const float spacing = 9f;
-        CreateAssetBox("Math_Start_Bridge", root, new Vector3(GateOrigin.x, GateOrigin.y, GateOrigin.z + 7.5f),
-            new Vector3(3.4f, 0.6f, 6f), bridgeMaterial);
+        const float spacing = 14f;
+        const float rowRise = 0.55f;
+        const float answerSpacing = 4.4f;
+        CreateKitPlatform("Math_Start_Bridge", root,
+            new Vector3(GateOrigin.x, GateOrigin.y, GateOrigin.z + 7.5f), new Vector3(3.4f, 0.6f, 6f));
 
         for (int stageIndex = 0; stageIndex < 10; stageIndex++)
         {
             float rowZ = firstRowZ + stageIndex * spacing;
-            float rowY = GateOrigin.y + stageIndex * 0.3f;
+            float rowY = GateOrigin.y + stageIndex * rowRise;
             Transform stageRoot = new GameObject($"Question_{stageIndex + 1:00}").transform;
             stageRoot.SetParent(root);
 
             MathAnswerPlatform[] answers = new MathAnswerPlatform[3];
             for (int answerIndex = 0; answerIndex < 3; answerIndex++)
             {
-                Vector3 position = new(GateOrigin.x + (answerIndex - 1) * 3.4f, rowY, rowZ);
-                answers[answerIndex] = AddAnswer(stageRoot, position, stageIndex, answerIndex, pink, green);
+                Vector3 position = new(GateOrigin.x + (answerIndex - 1) * answerSpacing, rowY, rowZ);
+                answers[answerIndex] = AddAnswer(stageRoot, position, stageIndex, answerIndex, green);
             }
 
-            float bridgeZ = rowZ + 5f;
-            GameObject bridge = CreateAssetBox("Correct_Bridge", stageRoot,
-                new Vector3(GateOrigin.x, rowY + 0.1f, bridgeZ), new Vector3(3.4f, 0.55f, 6f), green);
+            float bridgeZ = rowZ + spacing * 0.5f;
+            GameObject bridge = CreateKitPlatform("Correct_Bridge", stageRoot,
+                new Vector3(GateOrigin.x, rowY + 0.1f, bridgeZ), new Vector3(3.4f, 0.55f, 6f));
             AddCheckpoint(bridge.transform, $"Math_Checkpoint_{stageIndex + 1:00}",
                 new Vector3(GateOrigin.x, rowY + 1.6f, bridgeZ + 1.8f), new Vector3(3f, 3f, 2f));
             bridge.SetActive(false);
@@ -166,12 +164,16 @@ public static class BuildMathParkour
         }
 
         float exitZ = firstRowZ + 9 * spacing + 10f;
+        float exitY = GateOrigin.y + 9 * rowRise + 0.9f;
 
         // Satu papan soal besar di ujung lintasan, jadi terbaca dari semua baris.
-        GameObject board = CreateAssetBox("Math_Question_Board", root,
-            new Vector3(GateOrigin.x, GateOrigin.y + 9f, exitZ + 6f), new Vector3(26f, 12f, 0.6f), purple, false);
-        TextMeshPro boardText = AddText("<b>SOAL 1/10</b>", board.transform, new Vector3(0f, 0f, -0.65f), 5.5f,
-            Color.white, new Vector2(24f, 12f), Quaternion.identity, true);
+        GameObject board = CreatePlatformQuestionBoard(root,
+            new Vector3(GateOrigin.x, exitY + 8.4f, exitZ + 6f), out float textZ);
+        TextMeshPro boardText = AddText("<b>1+1=?</b>", board.transform, new Vector3(0f, 0f, textZ), 120f,
+            Color.white, new Vector2(52f, 19f), Quaternion.identity, true);
+        boardText.enableAutoSizing = true;
+        boardText.fontSizeMin = 48f;
+        boardText.fontSizeMax = 120f;
         MathCourseBoard courseBoard = board.AddComponent<MathCourseBoard>();
         SerializedObject serializedBoard = new(courseBoard);
         serializedBoard.FindProperty("label").objectReferenceValue = boardText;
@@ -184,13 +186,33 @@ public static class BuildMathParkour
             serializedStage.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        CreateAssetBox("Math_Exit", root, new Vector3(GateOrigin.x, GateOrigin.y + 3.6f, exitZ),
-            new Vector3(9f, 0.8f, 5f), bridgeMaterial);
-        AddCheckpoint(root, "Math_Finish", new Vector3(GateOrigin.x, GateOrigin.y + 5f, exitZ),
+        CreateKitPlatform("Math_Exit", root, new Vector3(GateOrigin.x, exitY, exitZ),
+            new Vector3(9f, 0.8f, 5f));
+        AddCheckpoint(root, "Math_Finish", new Vector3(GateOrigin.x, exitY + 1.4f, exitZ),
             new Vector3(9f, 3f, 5f));
         AddText("<b>MATH SELESAI</b>\nNEXT PARKOUR →", root,
-            new Vector3(GateOrigin.x, GateOrigin.y + 6.4f, exitZ), 2.4f, Color.white,
+            new Vector3(GateOrigin.x, exitY + 2.8f, exitZ), 2.4f, Color.white,
             new Vector2(10f, 5f), Quaternion.identity);
+
+        CreateMiniIsland(root, "Math_Entry_Island", EntryIslandTerrainPath,
+            new Vector2(GateOrigin.x, GateOrigin.z + 2.5f), GateOrigin.y - 0.7f,
+            new Vector3(18f, 16f, 15f), new Vector2(5.6f, 5.5f),
+            new[]
+            {
+                new Vector2(37.8f, 11f), new Vector2(50.2f, 11f),
+                new Vector2(44f, 17f), new Vector2(40.6f, 4.2f)
+            },
+            new[] { new Vector2(36.2f, 9f), new Vector2(51.8f, 12.6f) });
+
+        CreateMiniIsland(root, "Math_Finish_Island", FinishIslandTerrainPath,
+            new Vector2(GateOrigin.x, exitZ + 4f), exitY - 0.55f,
+            new Vector3(22f, 22f, 26f), new Vector2(7f, 8f),
+            new[]
+            {
+                new Vector2(38f, 161f), new Vector2(50f, 160.5f),
+                new Vector2(40f, 166f), new Vector2(48f, 166f)
+            },
+            new[] { new Vector2(34.6f, 158f), new Vector2(53.2f, 162f) });
 
         SpeedrunTimer timer = Object.FindFirstObjectByType<SpeedrunTimer>();
         if (timer != null)
@@ -202,10 +224,10 @@ public static class BuildMathParkour
     }
 
     private static MathAnswerPlatform AddAnswer(Transform parent, Vector3 position, int stageIndex,
-        int answerIndex, Material pink, Material green)
+        int answerIndex, Material green)
     {
-        GameObject platform = CreateAssetBox($"Answer_{stageIndex + 1:00}_{answerIndex + 1}", parent,
-            position, new Vector3(3.2f, 0.7f, 3.2f), pink);
+        GameObject platform = CreateKitPlatform($"Answer_{stageIndex + 1:00}_{answerIndex + 1}", parent,
+            position, new Vector3(3.2f, 0.7f, 3.2f));
         Rigidbody body = platform.AddComponent<Rigidbody>();
         body.isKinematic = true;
         body.useGravity = false;
@@ -216,7 +238,7 @@ public static class BuildMathParkour
         trigger.transform.localPosition = new Vector3(0f, 0.8f, 0f);
         BoxCollider triggerCollider = trigger.GetComponent<BoxCollider>();
         triggerCollider.isTrigger = true;
-        triggerCollider.size = new Vector3(0.95f, 1.5f, 0.95f);
+        triggerCollider.size = new Vector3(3.2f, 1.5f, 3.2f);
 
         TextMeshPro label = AddText("?", platform.transform, new Vector3(0f, 0.1f, -1.75f), 2.4f,
             Color.white, new Vector2(3.2f, 3f), Quaternion.identity, true);
@@ -229,14 +251,200 @@ public static class BuildMathParkour
         return answer;
     }
 
-    private static void AddKillZone(Transform root)
+    private static void CreateMiniIsland(Transform parent, string name, string dataPath,
+        Vector2 center, float plateauY, Vector3 size, Vector2 flatHalf,
+        Vector2[] grassSpots, Vector2[] rockSpots)
     {
-        GameObject killZone = new("Math_Parkour_Respawn_Zone", typeof(BoxCollider));
-        killZone.tag = "Water";
-        killZone.transform.SetParent(root);
-        killZone.transform.position = new Vector3(25f, 3f, 65f);
-        killZone.transform.localScale = new Vector3(64f, 1f, 140f);
-        killZone.GetComponent<BoxCollider>().isTrigger = true;
+        TerrainLayer grass = AssetDatabase.LoadAssetAtPath<TerrainLayer>(
+            "Assets/Nature/TerrainSample/ground_grass_fells_mossy/ground_grass_fells_mossy_CSNOH.terrainlayer");
+        TerrainLayer rockyGrass = AssetDatabase.LoadAssetAtPath<TerrainLayer>(
+            "Assets/Nature/TerrainSample/ground_rockgrass_fellsdirty/ground_rockgrass_fellsdirty_CSNOH.terrainlayer");
+        TerrainLayer beach = AssetDatabase.LoadAssetAtPath<TerrainLayer>(
+            "Assets/Nature/TerrainSample/aerial_beach/aerial_beach.terrainlayer");
+        if (grass == null || rockyGrass == null || beach == null)
+        {
+            Debug.LogError("Terrain Sample layers missing. Mini island build skipped.");
+            return;
+        }
+
+        TerrainData data = AssetDatabase.LoadAssetAtPath<TerrainData>(dataPath);
+        if (data == null)
+        {
+            data = new TerrainData();
+            AssetDatabase.CreateAsset(data, dataPath);
+        }
+
+        data.terrainLayers = new[] { grass, rockyGrass, beach };
+        ConfigureMiniIslandData(data, size, flatHalf);
+
+        GameObject terrainObject = Terrain.CreateTerrainGameObject(data);
+        terrainObject.name = name;
+        terrainObject.transform.SetParent(parent);
+        terrainObject.transform.position = new Vector3(center.x - size.x * 0.5f,
+            plateauY - size.y, center.y - size.z * 0.5f);
+
+        Terrain terrain = terrainObject.GetComponent<Terrain>();
+        terrain.drawInstanced = true;
+        terrain.heightmapPixelError = 3f;
+        terrain.basemapDistance = 1000f;
+
+        AddMiniIslandDecorations(terrain, terrainObject.transform, grassSpots, rockSpots);
+    }
+
+    private static float MiniIslandSlope01(float worldX, float worldZ, Vector3 size, Vector2 flatHalf)
+    {
+        float slopeX = Mathf.InverseLerp(flatHalf.x, size.x * 0.5f, Mathf.Abs(worldX));
+        float slopeZ = Mathf.InverseLerp(flatHalf.y, size.z * 0.5f, Mathf.Abs(worldZ));
+        return Mathf.SmoothStep(0f, 1f, Mathf.Max(slopeX, slopeZ));
+    }
+
+    private static void ConfigureMiniIslandData(TerrainData data, Vector3 size, Vector2 flatHalf)
+    {
+        const int resolution = 65;
+        data.heightmapResolution = resolution;
+        data.size = size;
+
+        float[,] heights = new float[resolution, resolution];
+        for (int z = 0; z < resolution; z++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                float worldX = x / (resolution - 1f) * size.x - size.x * 0.5f;
+                float worldZ = z / (resolution - 1f) * size.z - size.z * 0.5f;
+                float slope = MiniIslandSlope01(worldX, worldZ, size, flatHalf);
+                float noise = (Mathf.PerlinNoise((worldX + 100f) * 0.25f, (worldZ + 100f) * 0.25f) - 0.5f)
+                              * 0.08f * slope;
+                heights[z, x] = Mathf.Clamp01(1f - slope + noise);
+            }
+        }
+        data.SetHeights(0, 0, heights);
+
+        const int alphaResolution = 64;
+        data.alphamapResolution = alphaResolution;
+        float[,,] blend = new float[alphaResolution, alphaResolution, 3];
+        for (int z = 0; z < alphaResolution; z++)
+        {
+            for (int x = 0; x < alphaResolution; x++)
+            {
+                float worldX = x / (alphaResolution - 1f) * size.x - size.x * 0.5f;
+                float worldZ = z / (alphaResolution - 1f) * size.z - size.z * 0.5f;
+                float slope = MiniIslandSlope01(worldX, worldZ, size, flatHalf);
+
+                float beachWeight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.95f, slope));
+                float rockWeight = (1f - beachWeight) * Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(0.4f, 0.8f, slope));
+                float grassWeight = Mathf.Max(0f, 1f - beachWeight - rockWeight);
+                float total = grassWeight + rockWeight + beachWeight;
+
+                blend[z, x, 0] = grassWeight / total;
+                blend[z, x, 1] = rockWeight / total;
+                blend[z, x, 2] = beachWeight / total;
+            }
+        }
+        data.SetAlphamaps(0, 0, blend);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void AddMiniIslandDecorations(Terrain terrain, Transform parent,
+        Vector2[] grassSpots, Vector2[] rockSpots)
+    {
+        GameObject grassPrefab = LoadPrefab("Assets/Nature/SplineSample/Prefabs/Grass01.prefab");
+        GameObject rockPrefab = LoadPrefab("Assets/Nature/TerrainSample/Rocks/Rock_A_01.fbx");
+
+        for (int i = 0; i < grassSpots.Length; i++)
+            PlaceMiniDecoration(grassPrefab, terrain, parent, grassSpots[i], 0.7f, 37f * i, $"Grass_{i + 1:00}");
+        for (int i = 0; i < rockSpots.Length; i++)
+            PlaceMiniDecoration(rockPrefab, terrain, parent, rockSpots[i], 0.5f, 63f * i + 20f, $"Rock_{i + 1:00}");
+    }
+
+    private static void PlaceMiniDecoration(GameObject prefab, Terrain terrain, Transform parent,
+        Vector2 spot, float scale, float yaw, string name)
+    {
+        if (prefab == null)
+            return;
+
+        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        instance.name = name;
+        instance.transform.SetParent(parent);
+        instance.transform.position = new Vector3(spot.x,
+            terrain.SampleHeight(new Vector3(spot.x, 0f, spot.y)) + terrain.transform.position.y, spot.y);
+        instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        instance.transform.localScale *= scale;
+    }
+
+    private static void ConfigureWater()
+    {
+        GameObject water = GameObject.Find("Water");
+        if (water == null)
+        {
+            Debug.LogError("Missing scene Water object.");
+            return;
+        }
+
+        water.transform.position = new Vector3(25f, -1.5f, 72f);
+        water.transform.localScale = new Vector3(200f, 1f, 240f);
+    }
+
+    private static GameObject CreateKitPlatform(string name, Transform parent, Vector3 position, Vector3 size)
+    {
+        GameObject root = new(name);
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+
+        GameObject visual = (GameObject)PrefabUtility.InstantiatePrefab(LoadPrefab(PlatformPath), root.transform);
+        visual.name = "Platform_Kit_Visual";
+        visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
+        visual.transform.localScale = Vector3.one;
+        foreach (Collider collider in visual.GetComponentsInChildren<Collider>())
+            collider.enabled = false;
+
+        Renderer[] renderers = visual.GetComponentsInChildren<Renderer>();
+        Bounds bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers)
+            bounds.Encapsulate(renderer.bounds);
+        visual.transform.localScale = new Vector3(size.x / bounds.size.x, size.z / bounds.size.z,
+            size.y / bounds.size.y);
+
+        bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers)
+            bounds.Encapsulate(renderer.bounds);
+        visual.transform.position += position - bounds.center;
+
+        BoxCollider rootCollider = root.AddComponent<BoxCollider>();
+        rootCollider.size = size;
+        return root;
+    }
+
+    private static GameObject CreatePlatformQuestionBoard(Transform parent, Vector3 position, out float textZ)
+    {
+        GameObject root = new("Math_Question_Board");
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+
+        GameObject visual = (GameObject)PrefabUtility.InstantiatePrefab(LoadPrefab(PlatformPath), root.transform);
+        visual.name = "Platform_Kit_Board_Visual";
+        visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(0f, 180f, 0f));
+        visual.transform.localScale = Vector3.one;
+        foreach (Collider collider in visual.GetComponentsInChildren<Collider>())
+            collider.enabled = false;
+
+        Renderer[] renderers = visual.GetComponentsInChildren<Renderer>();
+        Bounds bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers)
+            bounds.Encapsulate(renderer.bounds);
+        visual.transform.localScale = new Vector3(56f / bounds.size.x, 22f / bounds.size.y,
+            1f / bounds.size.z);
+
+        bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers)
+            bounds.Encapsulate(renderer.bounds);
+        visual.transform.position += position - bounds.center;
+
+        bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers)
+            bounds.Encapsulate(renderer.bounds);
+        textZ = root.transform.InverseTransformPoint(new Vector3(position.x, position.y, bounds.min.z - 0.15f)).z;
+        return root;
     }
 
     private static GameObject CreateAssetBox(string name, Transform parent, Vector3 position, Vector3 size,

@@ -12,13 +12,24 @@ public class MathCourseBoard : MonoBehaviour
 
     public void Refresh()
     {
+        label ??= GetComponentInChildren<TMP_Text>(true);
+        if (label == null)
+        {
+            Debug.LogError("MathCourseBoard has no TMP_Text label.", this);
+            return;
+        }
+
         MathQuestionStage current = null;
         foreach (MathQuestionStage stage in stages)
             if (!stage.Solved && (current == null || stage.StageNumber < current.StageNumber))
                 current = stage;
 
-        label.text = current == null
-            ? "<b>SEMUA SOAL SELESAI</b>\nLANJUT KE FINISH →"
-            : $"<b>SOAL {current.StageNumber}/10</b>\n{current.Question} = ?";
+        if (current == null)
+        {
+            label.text = "<b>SELESAI</b>";
+            return;
+        }
+
+        label.text = $"<b>{(current.Question ?? "1+1").Replace(" ", "")}=?</b>";
     }
 }

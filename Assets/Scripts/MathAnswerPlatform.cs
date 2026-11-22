@@ -38,6 +38,15 @@ public class MathAnswerPlatform : MonoBehaviour
         StartCoroutine(Fall());
     }
 
+    public void DropIfWrong()
+    {
+        if (isCorrect || activated)
+            return;
+
+        activated = true;
+        StartCoroutine(Fall());
+    }
+
     private IEnumerator Fall()
     {
         yield return new WaitForSeconds(fallDelay);
