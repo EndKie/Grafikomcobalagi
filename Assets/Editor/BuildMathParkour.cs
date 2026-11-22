@@ -4,7 +4,6 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[InitializeOnLoad]
 public static class BuildMathParkour
 {
     private const string ScenePath = "Assets/Scenes/GetStarted_Scene.unity";
@@ -12,34 +11,10 @@ public static class BuildMathParkour
     private const string PlatformPath = "Assets/SourceFiles/Models/Platform.FBX";
     private const string EntryIslandTerrainPath = "Assets/Nature/Generated/MathEntryIslandTerrain.asset";
     private const string FinishIslandTerrainPath = "Assets/Nature/Generated/MathFinishIslandTerrain.asset";
+    private const string HighIslandTerrainPath = "Assets/Nature/Generated/MathHighIslandTerrain.asset";
     private static readonly Vector3 GateOrigin = new(44f, 14f, 8f);
-    private const int BuildVersion = 18;
+    private const int BuildVersion = 19;
     private const string RootName = "Math_Parkour_10_Questions";
-
-    static BuildMathParkour()
-    {
-        EditorApplication.delayCall += BuildOnce;
-    }
-
-    private static void BuildOnce()
-    {
-        if (EditorApplication.isPlayingOrWillChangePlaymode)
-            return;
-
-        // ponytail: scene kosong saat editor baru buka; ulang sampai scene aktif termuat.
-        if (string.IsNullOrEmpty(SceneManager.GetActiveScene().path))
-        {
-            EditorApplication.delayCall += BuildOnce;
-            return;
-        }
-
-        if (SceneManager.GetActiveScene().path != ScenePath)
-            return;
-
-        GameObject root = GameObject.Find(RootName);
-        if (root == null || root.transform.Find($"Build_v{BuildVersion}") == null)
-            Build();
-    }
 
     [MenuItem("Tools/Grafikom/Build Math Parkour _F8")]
     public static void Build()
@@ -196,23 +171,37 @@ public static class BuildMathParkour
 
         CreateMiniIsland(root, "Math_Entry_Island", EntryIslandTerrainPath,
             new Vector2(GateOrigin.x, GateOrigin.z + 2.5f), GateOrigin.y - 0.7f,
-            new Vector3(18f, 16f, 15f), new Vector2(5.6f, 5.5f),
+            new Vector3(18f, 11f, 15f), new Vector2(5.6f, 5.5f),
             new[]
             {
                 new Vector2(37.8f, 11f), new Vector2(50.2f, 11f),
                 new Vector2(44f, 17f), new Vector2(40.6f, 4.2f)
             },
-            new[] { new Vector2(36.2f, 9f), new Vector2(51.8f, 12.6f) });
+            new[] { new Vector2(36.2f, 9f), new Vector2(51.8f, 12.6f) },
+            new[] { new Vector2(38.4f, 14.5f), new Vector2(49.6f, 6.8f) });
 
         CreateMiniIsland(root, "Math_Finish_Island", FinishIslandTerrainPath,
             new Vector2(GateOrigin.x, exitZ + 4f), exitY - 0.55f,
-            new Vector3(22f, 22f, 26f), new Vector2(7f, 8f),
+            new Vector3(22f, 15f, 16f), new Vector2(7f, 6.5f),
             new[]
             {
-                new Vector2(38f, 161f), new Vector2(50f, 160.5f),
-                new Vector2(40f, 166f), new Vector2(48f, 166f)
+                new Vector2(37f, 160f), new Vector2(51f, 160f),
+                new Vector2(39f, 165f), new Vector2(49f, 165f)
             },
-            new[] { new Vector2(34.6f, 158f), new Vector2(53.2f, 162f) });
+            new[] { new Vector2(35f, 160f), new Vector2(53f, 162f) },
+            new[] { new Vector2(38f, 164f), new Vector2(50f, 163f) });
+
+        CreateMiniIsland(root, "Math_High_Island", HighIslandTerrainPath,
+            new Vector2(-45f, 160f), 39f,
+            new Vector3(26f, 16f, 28f), new Vector2(8f, 9f),
+            new[]
+            {
+                new Vector2(-53f, 157f), new Vector2(-37f, 158f),
+                new Vector2(-52f, 166f), new Vector2(-38f, 168f),
+                new Vector2(-45f, 171f), new Vector2(-35f, 164f)
+            },
+            new[] { new Vector2(-55f, 162f), new Vector2(-35f, 154f), new Vector2(-36f, 169f) },
+            new[] { new Vector2(-52f, 168f), new Vector2(-37f, 166f), new Vector2(-54f, 155f) });
 
         SpeedrunTimer timer = Object.FindFirstObjectByType<SpeedrunTimer>();
         if (timer != null)
@@ -253,7 +242,7 @@ public static class BuildMathParkour
 
     private static void CreateMiniIsland(Transform parent, string name, string dataPath,
         Vector2 center, float plateauY, Vector3 size, Vector2 flatHalf,
-        Vector2[] grassSpots, Vector2[] rockSpots)
+        Vector2[] grassSpots, Vector2[] rockSpots, Vector2[] treeSpots)
     {
         TerrainLayer grass = AssetDatabase.LoadAssetAtPath<TerrainLayer>(
             "Assets/Nature/TerrainSample/ground_grass_fells_mossy/ground_grass_fells_mossy_CSNOH.terrainlayer");
@@ -288,7 +277,7 @@ public static class BuildMathParkour
         terrain.heightmapPixelError = 3f;
         terrain.basemapDistance = 1000f;
 
-        AddMiniIslandDecorations(terrain, terrainObject.transform, grassSpots, rockSpots);
+        AddMiniIslandDecorations(terrain, terrainObject.transform, grassSpots, rockSpots, treeSpots);
     }
 
     private static float MiniIslandSlope01(float worldX, float worldZ, Vector3 size, Vector2 flatHalf)
@@ -346,15 +335,20 @@ public static class BuildMathParkour
     }
 
     private static void AddMiniIslandDecorations(Terrain terrain, Transform parent,
-        Vector2[] grassSpots, Vector2[] rockSpots)
+        Vector2[] grassSpots, Vector2[] rockSpots, Vector2[] treeSpots)
     {
         GameObject grassPrefab = LoadPrefab("Assets/Nature/SplineSample/Prefabs/Grass01.prefab");
         GameObject rockPrefab = LoadPrefab("Assets/Nature/TerrainSample/Rocks/Rock_A_01.fbx");
+        GameObject smallTreePrefab = LoadPrefab("Assets/Nature/SplineSample/Prefabs/TreeSmall.prefab");
+        GameObject mediumTreePrefab = LoadPrefab("Assets/Nature/SplineSample/Prefabs/TreeMedium.prefab");
 
         for (int i = 0; i < grassSpots.Length; i++)
             PlaceMiniDecoration(grassPrefab, terrain, parent, grassSpots[i], 0.7f, 37f * i, $"Grass_{i + 1:00}");
         for (int i = 0; i < rockSpots.Length; i++)
             PlaceMiniDecoration(rockPrefab, terrain, parent, rockSpots[i], 0.5f, 63f * i + 20f, $"Rock_{i + 1:00}");
+        for (int i = 0; i < treeSpots.Length; i++)
+            PlaceMiniDecoration(i % 2 == 0 ? smallTreePrefab : mediumTreePrefab,
+                terrain, parent, treeSpots[i], 0.75f, 71f * i + 15f, $"Tree_{i + 1:00}");
     }
 
     private static void PlaceMiniDecoration(GameObject prefab, Terrain terrain, Transform parent,
