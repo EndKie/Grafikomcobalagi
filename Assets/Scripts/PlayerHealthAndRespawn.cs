@@ -10,6 +10,7 @@ public class PlayerHealthAndRespawn : MonoBehaviour
 
     [Header("UI (Opsional - Bisa Diisi Nanti)")]
     public TextMeshProUGUI livesText;
+    public GameObject[] heartIcons;
     public GameObject gameOverPanel;
 
     private int currentLives;
@@ -80,6 +81,20 @@ public class PlayerHealthAndRespawn : MonoBehaviour
         isGameOver = true;
         Debug.Log("GAME OVER!");
 
+        SpeedrunTimer timer = GetComponent<SpeedrunTimer>();
+
+        if (timer != null)
+        {
+            timer.StopTimer();
+        }
+
+        RuntimeController runtimeTimer = FindFirstObjectByType<RuntimeController>();
+
+        if (runtimeTimer != null)
+        {
+            runtimeTimer.StopTimer();
+        }
+
         // Hentikan kenaikan air
         if (waterTransform != null)
         {
@@ -99,6 +114,14 @@ public class PlayerHealthAndRespawn : MonoBehaviour
     {
         if (livesText != null)
             livesText.text = "Nyawa: " + currentLives;
+
+        if (heartIcons != null)
+        {
+            for (int i = 0; i < heartIcons.Length; i++)
+            {
+                heartIcons[i].SetActive(i < currentLives);
+            }
+        }
     }
 
     // Fungsi untuk tombol Ulangi (Restart) di UI Game Over

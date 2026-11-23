@@ -10,6 +10,7 @@ public class SpeedrunTimer : MonoBehaviour
 
     private float elapsedTime;
     private bool finished;
+    private bool stopped;
 
     private void Start()
     {
@@ -22,7 +23,7 @@ public class SpeedrunTimer : MonoBehaviour
 
     private void Update()
     {
-        if (finished)
+        if (finished || stopped)
             return;
 
         elapsedTime += Time.deltaTime;
@@ -31,20 +32,34 @@ public class SpeedrunTimer : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!finished && other.CompareTag("Checkpoint") && other.name == finishCheckpointName)
+        if (!finished && !stopped &&
+            other.CompareTag("Checkpoint") &&
+            other.name == finishCheckpointName)
+        {
             Finish();
+        }
     }
 
     private void Finish()
     {
         finished = true;
 
-        if (!PlayerPrefs.HasKey(BestTimeKey) || elapsedTime < PlayerPrefs.GetFloat(BestTimeKey))
+        if (!PlayerPrefs.HasKey(BestTimeKey) ||
+            elapsedTime < PlayerPrefs.GetFloat(BestTimeKey))
         {
             PlayerPrefs.SetFloat(BestTimeKey, elapsedTime);
             PlayerPrefs.Save();
         }
 
+        UpdateBoard();
+    }
+
+    public void StopTimer()
+    {
+        if (finished || stopped)
+            return;
+
+        stopped = true;
         UpdateBoard();
     }
 
@@ -57,9 +72,15 @@ public class SpeedrunTimer : MonoBehaviour
             ? FormatTime(PlayerPrefs.GetFloat(BestTimeKey))
             : "--:--.--";
 
+        string status = finished
+            ? "FINISH: "
+            : stopped
+                ? "GAME OVER: "
+                : "WAKTU: ";
+
         leaderboardText.text =
             "<b>LEADERBOARD</b>\n" +
-            (finished ? "FINISH: " : "WAKTU: ") + FormatTime(elapsedTime) + "\n" +
+            status + FormatTime(elapsedTime) + "\n" +
             "TERBAIK: " + best;
     }
 
@@ -68,6 +89,7 @@ public class SpeedrunTimer : MonoBehaviour
         int hundredths = Mathf.RoundToInt(Mathf.Max(0f, seconds) * 100f);
         int minutes = hundredths / 6000;
         int secondsPart = hundredths / 100 % 60;
+
         return $"{minutes:00}:{secondsPart:00}.{hundredths % 100:00}";
     }
 }
