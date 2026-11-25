@@ -8,9 +8,8 @@ public class ChainMathCourse : MonoBehaviour
 
     [SerializeField] private TMP_Text[] questionLabels;
     [SerializeField] private ChainMathDoor[] doorSlots;
-    [SerializeField] private Transform[] stageSpawns;
+    [SerializeField] private GameObject[] stageBarriers;
     [SerializeField] private Transform resetPoint;
-    [SerializeField] private Transform finishPoint;
 
     private readonly ChainMathDoor[,] doors = new ChainMathDoor[StageCount, 3];
     private readonly int[] correctAnswers = new int[StageCount];
@@ -19,7 +18,8 @@ public class ChainMathCourse : MonoBehaviour
 
     private void Start()
     {
-        if (questionLabels.Length != StageCount || stageSpawns.Length != StageCount ||
+        if (questionLabels.Length != StageCount || stageBarriers == null || stageBarriers.Length != StageCount ||
+            System.Array.Exists(stageBarriers, barrier => barrier == null) ||
             doorSlots.Length != StageCount * 3 || doors.GetLength(1) != 3)
         {
             Debug.LogError("Chain Math Course requires five stages and three doors per stage.", this);
@@ -47,8 +47,8 @@ public class ChainMathCourse : MonoBehaviour
 
         int correctAnswer = correctAnswers[currentStage];
         currentValue = correctAnswer;
+        stageBarriers[currentStage].SetActive(false);
         currentStage++;
-        Teleport(player, currentStage == StageCount ? finishPoint : stageSpawns[currentStage]);
     }
 
     private void ResetCourse(Transform player)
@@ -60,6 +60,8 @@ public class ChainMathCourse : MonoBehaviour
 
     private void GenerateChain()
     {
+        foreach (GameObject barrier in stageBarriers)
+            barrier.SetActive(true);
         currentStage = 0;
         currentValue = Random.Range(2, 13);
 
@@ -68,7 +70,9 @@ public class ChainMathCourse : MonoBehaviour
             int left = currentValue;
             GenerateQuestion(left, out string symbol, out int operand, out int correctAnswer);
             correctAnswers[stage] = correctAnswer;
-            questionLabels[stage].text = $"<b>{left} {symbol} {operand} = ?</b>";
+            questionLabels[stage].text = stage == 0
+                ? $"<b>{left} {symbol} {operand} = ?</b>"
+                : $"<b>{symbol} {operand}</b>";
 
             int correctSlot = Random.Range(0, 3);
             HashSet<int> choices = new() { correctAnswer };

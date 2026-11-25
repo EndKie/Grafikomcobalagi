@@ -27,6 +27,7 @@ public class ChainMathDoor : MonoBehaviour
             return;
 
         Transform player = controller != null ? controller.transform : other.transform;
-        course.SelectDoor(this, player);
+        if (course != null)
+            course.SelectDoor(this, player);
     }
 }

@@ -151,6 +151,7 @@ public static class BuildMathParkour
             return;
         }
 
+        BuildIslandJumpRoute(root);
         Transform existingCourse = root.Find("Chain_Math_Course");
         if (existingCourse != null)
             Object.DestroyImmediate(existingCourse.gameObject);
@@ -167,6 +168,84 @@ public static class BuildMathParkour
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
         Debug.Log("Five-stage Chain Math Course added without rebuilding Math Parkour.");
+    }
+
+    [MenuItem("Tools/Grafikom/Apply Island Parkour and Open Ramp")]
+    public static void ApplyIslandParkourAndOpenRamp()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || SceneManager.GetActiveScene().path != ScenePath)
+            return;
+
+        Transform root = GameObject.Find(RootName)?.transform;
+        Transform course = root?.Find("Chain_Math_Course");
+        if (course == null || course.Find("Chain_Continuous_Ramp") == null)
+        {
+            Debug.LogError("Open GetStarted_Scene with the continuous Chain Math ramp before applying this update.");
+            return;
+        }
+
+        BuildIslandJumpRoute(root);
+        for (int i = course.childCount - 1; i >= 0; i--)
+        {
+            GameObject child = course.GetChild(i).gameObject;
+            if (child.name == "Chain_Side_Wall")
+                Undo.DestroyObjectImmediate(child);
+        }
+        EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+    }
+
+    private static void BuildIslandJumpRoute(Transform root)
+    {
+        Terrain from = root.Find("Math_Finish_Island")?.GetComponent<Terrain>();
+        Terrain to = root.Find("Math_High_Island")?.GetComponent<Terrain>();
+        Material aqua = LoadMaterial("Material_Simple_AquaMarine");
+        if (from == null || to == null || aqua == null)
+            return;
+
+        TerrainData fromData = from.terrainData;
+        TerrainData toData = to.terrainData;
+        if (fromData == null)
+            fromData = AssetDatabase.LoadAssetAtPath<TerrainData>(FinishIslandTerrainPath);
+        if (toData == null)
+            toData = AssetDatabase.LoadAssetAtPath<TerrainData>(HighIslandTerrainPath);
+        if (fromData == null || toData == null)
+        {
+            Debug.LogError("Island parkour needs valid TerrainData for both islands. Existing route was not changed.");
+            return;
+        }
+
+        Transform previousRoute = root.Find("Island_2_To_3_Parkour");
+
+        Vector3 start = from.transform.position + new Vector3(5f, 0f, 8f);
+        Vector3 end = to.transform.position + new Vector3(20f, 0f, 14f);
+        start.y = TerrainSurfaceY(from, fromData, start);
+        end.y = TerrainSurfaceY(to, toData, end);
+        Transform route = new GameObject("Island_2_To_3_Parkour").transform;
+        route.SetParent(root);
+
+        const int steps = 24;
+        Vector3 across = Vector3.Cross(Vector3.up, Vector3.ProjectOnPlane(end - start, Vector3.up).normalized);
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            float zigzag = (Mathf.PingPong(i + 3f, 6f) - 3f) * 0.9f;
+            Vector3 top = Vector3.Lerp(start, end, t) + across * zigzag;
+            float width = Mathf.Lerp(3.3f, 1.6f, t);
+            if (i == 0 || i == steps)
+                width = 3.3f;
+            CreateAssetBox($"Island_Jump_{i + 1:00}", route, top - Vector3.up * 0.3f,
+                new Vector3(width, 0.6f, width), aqua);
+        }
+
+        if (previousRoute != null)
+            Undo.DestroyObjectImmediate(previousRoute.gameObject);
+        Undo.RegisterCreatedObjectUndo(route.gameObject, "Rebuild Island Parkour");
+    }
+
+    private static float TerrainSurfaceY(Terrain terrain, TerrainData data, Vector3 point)
+    {
+        Vector3 local = point - terrain.transform.position;
+        return terrain.transform.position.y + data.GetInterpolatedHeight(local.x / data.size.x, local.z / data.size.z);
     }
 
     private static void BuildNormalParkour(Transform root, Material aqua, Material orange, Material yellow,
@@ -311,6 +390,7 @@ public static class BuildMathParkour
             new[] { new Vector2(-52f, 168f), new Vector2(-37f, 166f), new Vector2(-54f, 155f) });
 
         CreateOuterIslands(root);
+        BuildIslandJumpRoute(root);
         CreateChainMathCourse(root);
 
         SpeedrunTimer timer = Object.FindFirstObjectByType<SpeedrunTimer>();
@@ -372,64 +452,71 @@ public static class BuildMathParkour
         if (purple == null || blue == null || aqua == null)
             return;
 
+        Terrain island = root.Find("Math_Upper_Arc_Island").GetComponent<Terrain>();
+        Vector3 start = new(-49f, 39f, 156f);
+        Vector3 originalIslandCenter = new(-90f, 46f, 90f);
+        const float stageSpacing = 20f;
+        const float stageInterval = 0.15f;
+        Vector3 originalRun = Vector3.ProjectOnPlane(originalIslandCenter - start, Vector3.up);
+        Vector3 extension = originalRun.normalized * (stageSpacing / stageInterval - originalRun.magnitude);
+        Vector3 islandSize = island.terrainData.size;
+        Vector3 finish = originalIslandCenter + extension;
+        // ponytail: fixed landing center keeps repeated rebuilds from moving the island farther.
+        island.transform.position = finish - new Vector3(islandSize.x * 0.5f, islandSize.y, islandSize.z * 0.5f);
+
         Transform courseRoot = new GameObject("Chain_Math_Course").transform;
         courseRoot.SetParent(root);
         ChainMathCourse course = courseRoot.gameObject.AddComponent<ChainMathCourse>();
 
-        Vector3 start = new(-56f, 40f, 143f);
-        Vector3 finish = new(-84f, 60.5f, 100f);
-        Vector3 forward = finish - start;
-        forward.y = 0f;
-        forward.Normalize();
+        Vector3 run = finish - start;
+        Vector3 forward = Vector3.ProjectOnPlane(run, Vector3.up).normalized;
         Vector3 lateral = Vector3.Cross(Vector3.up, forward);
         Quaternion facing = Quaternion.LookRotation(forward, Vector3.up);
+        Quaternion slope = Quaternion.LookRotation(run, Vector3.up);
+        Vector3 midpoint = (start + finish) * 0.5f;
+        const float doorSpacing = 10f;
+        const float rampWidth = 3 * doorSpacing;
+        GameObject ramp = CreateAssetBox("Chain_Continuous_Ramp", courseRoot,
+            midpoint - slope * Vector3.up * 0.35f, new Vector3(rampWidth, 0.7f, run.magnitude), aqua);
+        ramp.transform.rotation = slope;
 
         Transform resetPoint = new GameObject("Chain_Reset_Point").transform;
         resetPoint.SetParent(courseRoot);
-        resetPoint.SetPositionAndRotation(start - forward * 3.2f + Vector3.up, facing);
-
-        Transform finishPoint = new GameObject("Chain_Finish_Point").transform;
-        finishPoint.SetParent(courseRoot);
-        finishPoint.SetPositionAndRotation(finish, facing);
+        resetPoint.SetPositionAndRotation(Vector3.Lerp(start, finish, 0.04f) + Vector3.up, facing);
 
         TextMeshPro[] questionLabels = new TextMeshPro[5];
         ChainMathDoor[] doorSlots = new ChainMathDoor[15];
-        Transform[] stageSpawns = new Transform[5];
+        GameObject[] stageBarriers = new GameObject[5];
 
         for (int stage = 0; stage < 5; stage++)
         {
-            float t = stage / 4f;
-            Vector3 center = Vector3.Lerp(start, finish - forward * 6f, t);
-            center.y = Mathf.Lerp(40f, 56.5f, t);
-
+            float t = 0.14f + stage * stageInterval;
+            Vector3 doorLine = Vector3.Lerp(start, finish, t);
             Transform stageRoot = new GameObject($"Chain_Stage_{stage + 1:00}").transform;
             stageRoot.SetParent(courseRoot);
+            Vector3 barrierBase = Vector3.Lerp(start, finish, t + 0.027f);
+            stageBarriers[stage] = CreateAssetBox($"Chain_Stage_Barrier_{stage + 1:00}", stageRoot,
+                barrierBase + Vector3.up * 3.9f, new Vector3(rampWidth + 0.1f, 8f, 0.45f), blue);
+            stageBarriers[stage].transform.rotation = facing;
 
-            GameObject floor = CreateAssetBox("Chain_Stage_Floor", stageRoot, center,
-                new Vector3(18f, 0.7f, 12f), aqua);
-            floor.transform.rotation = facing;
-
-            Transform spawn = new GameObject($"Chain_Stage_Spawn_{stage + 1:00}").transform;
-            spawn.SetParent(stageRoot);
-            spawn.SetPositionAndRotation(center - forward * 3.5f + Vector3.up * 1.2f, facing);
-            stageSpawns[stage] = spawn;
-
-            Vector3 doorLine = center + forward * 2.2f;
             for (int slot = 0; slot < 3; slot++)
             {
-                Vector3 doorCenter = doorLine + lateral * ((slot - 1) * 6f) + Vector3.up * 2.1f;
+                Vector3 doorCenter = doorLine + lateral * ((slot - 1) * doorSpacing) + Vector3.up * 2.1f;
                 GameObject doorObject = new($"Chain_Door_{stage + 1:00}_{slot + 1:00}",
                     typeof(BoxCollider), typeof(ChainMathDoor));
+                Rigidbody body = doorObject.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                body.useGravity = false;
                 doorObject.transform.SetParent(stageRoot);
                 doorObject.transform.SetPositionAndRotation(doorCenter, facing);
                 BoxCollider trigger = doorObject.GetComponent<BoxCollider>();
                 trigger.isTrigger = true;
-                trigger.size = new Vector3(6f, 4.2f, 1f);
+                trigger.size = new Vector3(doorSpacing, 4.2f, 1f);
 
                 CreateChainDoorFrame(stageRoot, doorCenter, facing, lateral, purple);
                 TextMeshPro answerLabel = AddText("?", doorObject.transform,
-                    new Vector3(0f, 2.7f, -0.1f), 2.4f, Color.white,
-                    new Vector2(4f, 2f), Quaternion.identity, true);
+                    new Vector3(0f, 0f, -0.4f), 5f, Color.white,
+                    new Vector2(6f, 2.5f), Quaternion.identity, true);
                 SerializedObject serializedDoor = new(doorObject.GetComponent<ChainMathDoor>());
                 serializedDoor.FindProperty("answerLabel").objectReferenceValue = answerLabel;
                 serializedDoor.ApplyModifiedPropertiesWithoutUndo();
@@ -440,8 +527,8 @@ public static class BuildMathParkour
             GameObject board = CreateAssetBox("Chain_Question_Board", stageRoot, boardCenter,
                 new Vector3(16.5f, 4.2f, 0.6f), blue);
             board.transform.rotation = facing;
-            TextMeshPro questionLabel = AddText("<b>8 × 3 = ?</b>", stageRoot,
-                boardCenter - forward * 0.4f, 3f, Color.white,
+            TextMeshPro questionLabel = AddText(stage == 0 ? "<b>8 × 3 = ?</b>" : "<b>+ 12</b>", stageRoot,
+                boardCenter - forward * 0.5f, 11f, Color.white,
                 new Vector2(15f, 3.6f), facing);
             questionLabel.name = $"Chain_Question_{stage + 1:00}";
             questionLabels[stage] = questionLabel;
@@ -450,9 +537,8 @@ public static class BuildMathParkour
         SerializedObject serializedCourse = new(course);
         SetObjectArray(serializedCourse.FindProperty("questionLabels"), questionLabels);
         SetObjectArray(serializedCourse.FindProperty("doorSlots"), doorSlots);
-        SetObjectArray(serializedCourse.FindProperty("stageSpawns"), stageSpawns);
+        SetObjectArray(serializedCourse.FindProperty("stageBarriers"), stageBarriers);
         serializedCourse.FindProperty("resetPoint").objectReferenceValue = resetPoint;
-        serializedCourse.FindProperty("finishPoint").objectReferenceValue = finishPoint;
         serializedCourse.ApplyModifiedPropertiesWithoutUndo();
     }
 
