@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -7,31 +8,40 @@ public class PauseMenuController : MonoBehaviour
     public GameObject pausePanel;
     public GameObject settingsPanel;
 
-    private bool isPaused = false;
+    [Header("Game State")]
+    public PlayerHealthAndRespawn playerHealth;
 
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            if (isPaused)
-            {
-                ResumeGame();
-            }
-            else
-            {
-                PauseGame();
-            }
-        }
-    }
+    private bool isPaused = false;
 
     void Start()
     {
-        pausePanel.SetActive(false);
-        Time.timeScale = 1f;
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
+
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
+    }
+
+    void Update()
+    {
+        // Jangan izinkan Pause saat Game Over
+        if (playerHealth != null && playerHealth.IsGameOver())
+            return;
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (isPaused)
+                ResumeGame();
+            else
+                PauseGame();
+        }
     }
 
     public void PauseGame()
     {
+        if (playerHealth != null && playerHealth.IsGameOver())
+            return;
+
         isPaused = true;
         pausePanel.SetActive(true);
         Time.timeScale = 0f;
@@ -44,6 +54,10 @@ public class PauseMenuController : MonoBehaviour
     {
         isPaused = false;
         pausePanel.SetActive(false);
+
+        if (settingsPanel != null)
+            settingsPanel.SetActive(false);
+
         Time.timeScale = 1f;
 
         Cursor.lockState = CursorLockMode.Locked;

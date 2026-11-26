@@ -8,6 +8,11 @@ public class PlayerHealthAndRespawn : MonoBehaviour
     public int maxLives = 3;
     public Transform waterTransform;
 
+    [Header("Audio")]
+    public AudioSource audioSource;
+    public AudioClip gameOverSound;
+    public AudioClip damageSound;
+
     [Header("UI (Opsional - Bisa Diisi Nanti)")]
     public TextMeshProUGUI livesText;
     public GameObject[] heartIcons;
@@ -47,23 +52,42 @@ public class PlayerHealthAndRespawn : MonoBehaviour
         }
     }
 
-    void HandleWaterHit()
+    
+void HandleWaterHit()
+{
+    // Cek apakah checkpoint terakhir sudah terendam
+    bool isCheckpointSubmerged =
+        waterTransform != null &&
+        respawnPosition.y <= (waterTransform.position.y + 0.5f);
+
+    // Jika checkpoint sudah terendam, langsung Game Over
+    // tanpa mengurangi nyawa.
+    if (isCheckpointSubmerged)
     {
-        currentLives--;
-        UpdateLivesUI();
-
-        // Cek apakah posisi checkpoint terakhir sudah ikut terendam air
-        bool isCheckpointSubmerged = waterTransform != null && respawnPosition.y <= (waterTransform.position.y + 0.5f);
-
-        if (currentLives <= 0 || isCheckpointSubmerged)
-        {
-            TriggerGameOver();
-        }
-        else
-        {
-            RespawnPlayer();
-        }
+        TriggerGameOver();
+        return;
     }
+
+    // Checkpoint masih aman, kurangi satu nyawa
+    currentLives--;
+
+    if (audioSource != null && damageSound != null)
+    {
+        audioSource.PlayOneShot(damageSound);
+    }
+
+    UpdateLivesUI();
+
+    // Jika nyawa habis, Game Over
+    if (currentLives <= 0)
+    {
+        TriggerGameOver();
+    }
+    else
+    {
+        RespawnPlayer();
+    }
+}
 
     void RespawnPlayer()
     {
@@ -106,8 +130,20 @@ public class PlayerHealthAndRespawn : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
+        // Putar suara Game Over
+        if (audioSource != null && gameOverSound != null)
+        {
+            audioSource.PlayOneShot(gameOverSound);
+        }
+
+        // Munculkan panel Game Over
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);
+    }
+
+    public bool IsGameOver()
+    {
+        return isGameOver;
     }
 
     void UpdateLivesUI()

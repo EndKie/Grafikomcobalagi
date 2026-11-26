@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,7 +17,8 @@ public class WaterLevelUI : MonoBehaviour
 
     void Update()
     {
-        if (waterTransform == null) return;
+        if (waterTransform == null)
+            return;
 
         float currentHeight = waterTransform.position.y;
 
@@ -26,9 +28,13 @@ public class WaterLevelUI : MonoBehaviour
             currentHeight
         );
 
-        waterFill.fillAmount = level;
+        if (waterFill != null)
+            waterFill.fillAmount = level;
 
-        int percentage = Mathf.RoundToInt(level * 100f);
-        waterLevelText.text = percentage + "%";
+        if (waterLevelText != null)
+        {
+            int percentage = Mathf.RoundToInt(level * 100f);
+            waterLevelText.text = percentage + "%";
+        }
     }
 }
